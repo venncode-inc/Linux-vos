@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vOS Boot Sequence</title>
+    <!-- Memuat Font Awesome untuk ikon -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js" crossorigin="anonymous"></script>
+    <style>
+        /* --- 1. CSS Variables (Linux Dark Theme) --- */
+        :root {
+            --bg-desktop: #282c34; 
+            --text-color: #abb2bf; 
+            --window-bg: #1e1e1e; 
+            --panel-bg: #323842; 
+            --accent-color: #61afef; /* Biru Neon untuk Stage 1 */
+            --kali-accent: #00ff66; /* Hijau Neon untuk Stage 2 */
+            --dock-bg: rgba(46, 52, 64, 0.95); 
+            
+            --radius: 8px; 
+            --shadow: 0 8px 20px rgba(0, 0, 0, 0.6); 
+        }
+
+        /* --- 2. GLOBAL STYLES --- */
+        body {
+            font-family: 'Roboto Mono', monospace;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow: hidden; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: black; 
+        }
+        
+        /* --- 3. BOOTLOADER SCREEN STYLES (MODERN MINIMALIS) --- */
+        #bootloader-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s;
+            z-index: 2000;
+        }
+
+        /* --- Background Label --- */
+        #bg-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8em; 
+            color: rgba(255, 255, 255, 0.03); 
+            font-weight: bold;
+            letter-spacing: 15px;
+            z-index: 1999; 
+            user-select: none;
+            pointer-events: none;
+        }
+
+        #boot-text {
+            font-size: 1.2em; 
+            color: #999; 
+            margin-bottom: 20px;
+            font-weight: normal;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000; 
+        }
+        #boot-text i {
+            font-size: 1.5em; 
+        }
+
+        #loading-bar-container {
+            width: 60%; 
+            max-width: 350px;
+            height: 3px; 
+            background-color: #1a1a1a; 
+            border-radius: 1.5px;
+            overflow: hidden;
+            margin-top: 15px;
+            z-index: 2000;
+        }
+
+        #loading-bar {
+            width: 0;
+            height: 100%;
+            background-color: var(--accent-color); 
+            box-shadow: 0 0 5px var(--accent-color);
+            transition: width 0.1s linear, background-color 0.5s ease; 
+        }
+        
+        #percentage {
+            margin-top: 15px;
+            font-size: 0.7em; 
+            color: #777;
+            letter-spacing: 1px;
+            z-index: 2000;
+        }
+
+        /* --- 4. DESKTOP STYLES --- */
+        #desktop-container {
+            width: 100%;
+            height: 100vh;
+            background-color: var(--bg-desktop);
+            color: var(--text-color);
+            display: none; 
+            flex-direction: column;
+            position: relative;
+            padding-bottom: 40px; 
+        }
+
+        /* --- DESKTOP COMPONENTS STYLES --- */
+        .linux-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20px; 
+            background-color: var(--panel-bg);
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: flex-end; 
+            align-items: center;
+            font-size: 0.7em; 
+            padding: 0 10px;
+            z-index: 1000;
+        }
+
+        .panel-right {
+             display: flex;
+             gap: 15px; 
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #macos-dock {
+            position: fixed;
+            bottom: 30px; 
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--dock-bg);
+            border-radius: 12px;
+            padding: 8px 15px;
+            box-shadow: var(--shadow);
+            display: flex;
+            gap: 15px; 
+            align-items: center;
+            z-index: 1010;
+        }
+
+        .dock-item {
+            width: 35px;
+            height: 35px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dock-item i {
+            font-size: 1.5em;
+            color: var(--text-color);
+            transition: color 0.2s;
+        }
+        .dock-item.active {
+             border-bottom: 3px solid var(--kali-accent);
+        }
+        .dock-item.active i {
+             color: var(--kali-accent);
+        }
+        .dock-item:hover {
+            transform: translateY(-8px) scale(1.2); 
+        }
+
+        .app-window {
+            position: absolute; 
+            top: 50px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%; 
+            max-width: 650px; 
+            height: 80%; 
+            max-height: 450px;
+            background-color: var(--window-bg);
+            box-shadow: var(--shadow); 
+            display: none; 
+            flex-direction: column;
+            resize: both; 
+            overflow: hidden;
+            z-index: 100; 
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out, width 0.3s, height 0.3s; 
+            border: 1px solid #111;
+        }
+        
+        .window-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background-color: #242931; 
+            cursor: grab; 
+            user-select: none;
+        }
+
+        .terminal-content {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.9em;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; 
+        }
+        .terminal-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .prompt {
+            color: var(--kali-accent); 
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        #terminal-input {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9em;
+            padding: 0;
+            margin-left: 5px;
+            flex-grow: 1;
+            outline: none;
+            caret-color: var(--text-color);
+        }
+        
+        #terminal-input:disabled {
+            color: #777;
+            cursor: not-allowed;
+        }
+
+        /* File Manager Styling */
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px;
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        .file-item:hover {
+            background-color: #2a2a2a;
+        }
+        .file-item.selected {
+            background-color: #3d3d3d;
+            border-left: 3px solid var(--kali-accent);
+        }
+
+        .action-button {
+            padding: 5px 10px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 0.8em; 
+            font-weight: bold;
+            margin-right: 10px;
+            transition: background-color 0.2s;
+        }
+
+        .audit-button-style {
+            background-color: var(--kali-accent); 
+            color: #1e1e1e;
+        }
+        .browser-button-style {
+            background-color: var(--accent-color); 
+            color: white;
+        }
+
+        .loading-spinner::after {
+            content: ' ...';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .notification-area {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: var(--panel-bg);
+            color: var(--text-color);
+            padding: 10px 15px;
+            border-radius: 4px;
+            box-shadow: var(--shadow);
+            opacity: 0.95;
+            z-index: 1000;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        
+        /* --- 5. NEW BROWSER STYLES (Basic Chrome Look) --- */
+        .browser-window {
+            border-radius: var(--radius);
+        }
+
+        .browser-header {
+            /* Chrome-like header color */
+            background-color: #33363d; 
+            padding: 8px 10px;
+            align-items: center;
+            display: flex;
+            flex-wrap: nowrap; 
+            gap: 10px;
+            cursor: grab;
+        }
+
+        .nav-button {
+            background-color: #444851;
+            color: var(--text-color);
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.8em;
+        }
+        .nav-button:hover {
+            background-color: #555964;
+        }
+
+        .address-bar-container {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            min-width: 100px; /* Minimal width for small screens */
+        }
+
+        .address-bar-input {
+            width: 100%;
+            background-color: #242931; 
+            color: var(--text-color);
+            border: 1px solid #1a1a1a;
+            padding: 5px 10px;
+            border-radius: 20px; 
+            font-size: 0.8em;
+            outline: none;
+            transition: border-color 0.2s;
+            text-align: center;
+        }
+        .address-bar-input:focus {
+            border-color: var(--kali-accent);
+        }
+        .browser-window .window-title {
+            font-size: 0.8em;
+            padding: 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+    </style>
+</head>
+<body> 
+
+    <!-- ----------------------------------------------------- -->
+    <!--                  BOOTLOADER SCREEN                    -->
+    <!-- ----------------------------------------------------- -->
+    <div id="bootloader-screen">
+        <div id="bg-label">vOS</div>
+        <div id="boot-text"></div>
+        <div id="loading-bar-container">
+            <div id="loading-bar"></div>
+        </div>
+        <div id="percentage">0%</div>
+    </div>
+
+
+    <!-- ----------------------------------------------------- -->
+    <!--                    DESKTOP CONTENT                    -->
+    <!-- ----------------------------------------------------- -->
+    <div id="desktop-container" class="linux-desktop">
+
+        <!-- macOS-style Dock (Bottom Center, Floating) -->
+        <div id="macos-dock">
+            <div id="terminal-dock-item" class="dock-item" data-window-id="terminal-window" onclick="toggleApp('terminal-window')">
+                <i class="fas fa-terminal" title="Terminal"></i>
+            </div>
+            <div id="file-manager-dock-item" class="dock-item" data-window-id="file-manager-window" onclick="toggleApp('file-manager-window')">
+                <i class="fas fa-folder-open" title="Files"></i>
+            </div>
+            <div id="browser-dock-item" class="dock-item" data-window-id="website-viewer-window" onclick="toggleApp('website-viewer-window')">
+                <i class="fas fa-globe" title="Web Browser"></i>
+            </div>
+            <div class="dock-item" onclick="openWhatsAppChat()">
+                <i class="fab fa-whatsapp" style="color:#25D366;" title="Chat (WA)"></i>
+            </div>
+            <div class="dock-item" onclick="launchMyApii()">
+                <i class="fas fa-satellite-dish" style="color:#ffae42;" title="MyApii"></i>
+            </div>
+            <div class="dock-item" onclick="openSettings()">
+                <i class="fas fa-cog" title="Settings"></i>
+            </div>
+        </div>
+
+        <!-- Panel Bawah (Status Bar Tipis) -->
+        <footer class="linux-panel">
+            <div class="panel-right">
+                <span class="panel-item status-item battery-display" id="battery-display"></span>
+                <span class="panel-item status-item time-display" id="time-display"></span>
+            </div>
+        </footer>
+
+        <!-- Jendela Aplikasi (Terminal) -->
+        <div id="terminal-window" class="app-window terminal-window" style="display: none; top: 80px; left: 50%; transform: translateX(-50%);"> 
+            <header class="window-header">
+                <div class="window-title">
+                    <i class="fas fa-terminal"></i> root@kali: ~ 
+                </div>
+            </header>
+
+            <div class="terminal-content">
+                <div id="terminal-history" class="terminal-history">
+                    <!-- Konten awal akan diisi oleh JS -->
+                </div>
+                <!-- Input Terminal -->
+                <div class="terminal-input-line">
+                    <span class="prompt">root@kali:~#</span><input type="text" id="terminal-input" onkeydown="handleTerminalInput(event)">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Jendela Aplikasi (File Manager) -->
+        <div id="file-manager-window" class="app-window file-manager-window" style="display: none; top: 130px; left: 50%; transform: translateX(-50%);"> 
+            <header class="window-header">
+                <div class="window-title">
+                    <i class="fas fa-folder"></i> File Manager: /home/user/
+                </div>
+            </header>
+            <div class="window-content" style="padding: 15px; flex-grow: 1; display: flex; flex-direction: column;">
+                <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">/home/user/</p>
+                
+                <!-- File List Area -->
+                <div id="file-list" style="flex-grow: 1; overflow-y: auto;">
+                    <div class="file-item" data-path="Documents/" data-type="folder"><i class="fas fa-folder" style="color: #ffae42;"></i> Documents/</div>
+                    <div class="file-item" data-path="Pictures/" data-type="folder"><i class="fas fa-folder" style="color: #ffae42;"></i> Pictures/</div>
+                    <!-- Link telah diubah ke default-lime.vercel.app -->
+                    <div class="file-item" data-path="Venncode.link" data-type="link" data-src="https://default-lime.vercel.app"><i class="fas fa-link" style="color: #61afef;"></i> Venncode.link</div>
+                    <div class="file-item" data-path="News_Feed.html" data-type="link" data-src="https://www.bing.com"><i class="fas fa-file-code" style="color: #61afef;"></i> News_Feed.html</div>
+                    <!-- File Lama -->
+                    <div class="file-item" data-path="passwords.txt" data-type="file"><i class="fas fa-file-alt" style="color: #f0f;"></i> passwords.txt</div>
+                    <div class="file-item" data-path="exploit.sh" data-type="file"><i class="fas fa-file-code" style="color: #00ff66;"></i> exploit.sh</div>
+                    <div class="file-item" data-path=".ssh/id_rsa" data-type="file"><i class="fas fa-key" style="color: #d88;"></i> .ssh/id_rsa</div>
+                    <div class="file-item" data-path="system_logs.log" data-type="file"><i class="fas fa-file-alt" style="color: #fff;"></i> system_logs.log</div>
+                </div>
+
+                <!-- Audit Area powered by Gemini -->
+                <div id="file-action-area" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; min-height: 100px;">
+                    <p id="selected-file-info" style="font-size: 0.8em; color: #777; margin-bottom: 8px;">Pilih file atau folder di atas untuk aksi.</p>
+                    
+                    <!-- Tombol Audit (Gemini) -->
+                    <button id="audit-button" class="action-button audit-button-style" style="display:none;" onclick="triggerSecurityAudit()">✨ Audit Keamanan</button>
+                    
+                    <!-- Tombol Buka di Browser (Baru) -->
+                    <button id="open-browser-button" class="action-button browser-button-style" style="display:none;" onclick="openSelectedFileInBrowser()">Buka di Browser</button>
+
+                    <div id="audit-result" style="margin-top: 10px; font-size: 0.8em; color: var(--text-color); white-space: pre-wrap;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jendela Aplikasi (Web Viewer / Browser BARU) -->
+        <div id="website-viewer-window" class="app-window browser-window" style="display: none; top: 150px; left: 55%; transform: translateX(-50%); width: 70%; max-width: 800px; height: 90%;"> 
+            <header class="window-header browser-header">
+                <!-- Browser Controls -->
+                <div class="browser-controls" style="display: flex; gap: 5px; align-items: center;">
+                    <button id="browser-back" class="nav-button" title="Kembali"><i class="fas fa-arrow-left"></i></button>
+                    <button id="browser-forward" class="nav-button" title="Maju"><i class="fas fa-arrow-right"></i></button>
+                    <button id="browser-refresh" class="nav-button" title="Refresh"><i class="fas fa-redo-alt"></i></button>
+                </div>
+                
+                <!-- Address Bar -->
+                <div class="address-bar-container">
+                    <input type="text" id="address-bar-input" class="address-bar-input" placeholder="Masukkan URL..." value="https://default-lime.vercel.app">
+                </div>
+                
+                <!-- Title (Simulasi tab/judul) -->
+                <div class="window-title">
+                    <i class="fas fa-globe"></i> <span id="browser-title">Web Browser</span>
+                </div>
+            </header>
+            <div class="window-content" style="flex-grow: 1; padding: 0;">
+                <!-- Iframe untuk menampilkan konten web -->
+                <iframe id="web-viewer-iframe" style="width: 100%; height: 100%; border: none; background-color: #fff;"></iframe>
+            </div>
+        </div>
+
+        <!-- Simulasi Notifikasi -->
+        <div class="notification-area" onclick="this.style.display='none'">
+            <p><i class="fas fa-bell"></i> **System Update:** 50 packages pending upgrade.</p>
+        </div>
+    </div>
+
+
+    <script>
+        /**
+         * Script untuk mengontrol Bootloader, Jendela Aplikasi, Dock, Terminal, dan Fitur AI.
+         */
+        
+        // Konstanta API
+        const API_KEY = ""; // Kunci API dibiarkan kosong
+        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+        
+        // GLOBAL STATE
+        let terminalWindow, terminalInput, terminalHistory;
+        let currentZIndex = 100;
+        let isProcessing = false;
+        let isAuditing = false; 
+        let selectedFilePath = '';
+        let selectedFileSrc = ''; 
+
+        // BOOTLOADER ELEMENTS
+        const bootloaderScreen = document.getElementById('bootloader-screen');
+        const desktopContainer = document.getElementById('desktop-container');
+        const bootText = document.getElementById('boot-text');
+        const loadingBar = document.getElementById('loading-bar');
+        const percentageDisplay = document.getElementById('percentage');
+
+        // TIMING CONFIG (BASE values for randomization)
+        const STAGE1_BASE_DURATION = 15000; 
+        const STAGE1_RANDOM_RANGE = 5000; 
+        const STAGE2_BASE_DURATION = 59000; 
+        const STAGE2_RANDOM_RANGE = 20000; 
+
+        // Helper function untuk mendapatkan durasi acak
+        function getRandomDuration(baseMs, rangeMs) {
+            return Math.floor(baseMs + (Math.random() * rangeMs * 2) - rangeMs);
+        }
+
+        // ===================================================================
+        // 1. BOOTLOADER LOGIC
+        // ===================================================================
+
+        function animateStage(duration, stepText, accentColor, callback) {
+            let startTime = null;
+            let currentPercentage = 0;
+
+            loadingBar.style.backgroundColor = accentColor;
+            loadingBar.style.boxShadow = `0 0 5px ${accentColor}`;
+
+            const animate = (timestamp) => {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+
+                if (elapsed < duration) {
+                    currentPercentage = Math.min(100, (elapsed / duration) * 100);
+
+                    // Update UI
+                    loadingBar.style.width = `${currentPercentage}%`;
+                    percentageDisplay.textContent = `${Math.floor(currentPercentage)}%`;
+                    bootText.innerHTML = stepText; 
+
+                    requestAnimationFrame(animate);
+                } else {
+                    loadingBar.style.width = '100%';
+                    percentageDisplay.textContent = '100%';
+                    callback();
+                }
+            };
+            requestAnimationFrame(animate);
+        }
+
+        function startBootloader() {
+            const blueAccent = 'var(--accent-color)';
+            const greenAccent = 'var(--kali-accent)';
+            
+            const stage1Duration = getRandomDuration(STAGE1_BASE_DURATION, STAGE1_RANDOM_RANGE);
+            const stage2Duration = getRandomDuration(STAGE2_BASE_DURATION, STAGE2_RANDOM_RANGE);
+            
+            console.log(`[BOOT] Stage 1 (Venncode-Inc) Duration: ${stage1Duration / 1000}s`);
+            console.log(`[BOOT] Stage 2 (vOS minUi) Duration: ${stage2Duration / 1000}s`);
+
+            const iconStage1 = `<i class="fas fa-layer-group" style="color:${blueAccent};"></i>`;
+
+            // Stage 1: Venncode-Inc
+            animateStage(stage1Duration, `${iconStage1} Venncode-Inc`, blueAccent, () => {
+                loadingBar.style.width = '0%';
+                percentageDisplay.textContent = '0%';
+                
+                // Stage 2: vOS minUi 5.8 
+                animateStage(stage2Duration, 'Loading OS: vOS minUi 5.8', greenAccent, () => {
+                    setTimeout(showDesktop, 1000); 
+                });
+            });
+        }
+
+        function showDesktop() {
+            bootloaderScreen.style.opacity = 0;
+            
+            setTimeout(() => {
+                bootloaderScreen.style.display = 'none';
+                desktopContainer.style.display = 'flex';
+                initializeDesktop(); 
+            }, 1000); 
+        }
+
+        // ===================================================================
+        // 2. DESKTOP INITIALIZATION
+        // ===================================================================
+
+        function initializeDesktop() {
+            terminalWindow = document.getElementById('terminal-window');
+            terminalInput = document.getElementById('terminal-input');
+            terminalHistory = document.getElementById('terminal-history');
+
+            // Setup Time and Battery updates
+            updateTime();
+            updateBatteryDisplay(); 
+            setInterval(updateTime, 1000);
+            setInterval(updateBatteryDisplay, 5000); 
+
+            initializeTerminalContent();
+            setupFileManagerInteraction();
+
+            const windowElements = document.querySelectorAll('.app-window');
+            windowElements.forEach(dragElement);
+            
+            // NEW: Setup Browser events and initial load
+            setupBrowserEvents();
+            
+            // Set initial content for the browser (about:blank for safety)
+            const addressBarInput = document.getElementById('address-bar-input');
+            const iframe = document.getElementById('web-viewer-iframe');
+            if (iframe) {
+                // Load the initial value from the address bar, or about:blank
+                iframe.src = addressBarInput.value || 'about:blank';
+                // Set a placeholder title
+                document.getElementById('browser-title').textContent = 'Web Browser (Ready)';
+            }
+
+
+            // Open Terminal by default after boot
+            if (terminalWindow) {
+                 terminalWindow.style.display = 'flex';
+                 updateDockStatus('terminal-window', true);
+                 terminalInput.focus();
+            }
+        }
+
+
+        // ===================================================================
+        // 3. UI/UX FUNCTIONS
+        // ===================================================================
+
+        function bringToFront(windowId) {
+            const windowElement = document.getElementById(windowId);
+            if (windowElement) {
+                currentZIndex += 1;
+                windowElement.style.zIndex = currentZIndex;
+            }
+        }
+        
+        function getCoords(e) {
+            if (e.touches && e.touches.length) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function dragElement(windowElement) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const headerElement = windowElement.querySelector('.window-header');
+
+            if (!headerElement) return;
+
+            headerElement.onmousedown = dragStart;
+            headerElement.ontouchstart = dragStart;
+            
+            windowElement.addEventListener('mousedown', () => bringToFront(windowElement.id));
+            windowElement.addEventListener('touchstart', () => bringToFront(windowElement.id));
+
+            function dragStart(e) {
+                if (windowElement.classList.contains('maximized-full-screen')) return;
+                e.preventDefault();
+                bringToFront(windowElement.id);
+
+                const coords = getCoords(e);
+                pos3 = coords.x;
+                pos4 = coords.y;
+
+                if (e.type.includes('mouse')) {
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementDrag;
+                } else if (e.type.includes('touch')) {
+                    document.ontouchend = closeDragElement;
+                    document.ontouchmove = elementDrag;
+                }
+            }
+
+            function elementDrag(e) {
+                if (windowElement.classList.contains('maximized-full-screen')) return;
+                e.preventDefault();
+                
+                const coords = getCoords(e);
+
+                pos1 = pos3 - coords.x;
+                pos2 = pos4 - coords.y;
+                pos3 = coords.x;
+                pos4 = coords.y;
+
+                windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
+                windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
+                
+                windowElement.style.transform = 'none'; 
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+                document.ontouchend = null;
+                document.ontouchmove = null;
+            }
+        }
+
+        function updateDockStatus(windowId, isActive) {
+            const dockItem = document.querySelector(`.dock-item[data-window-id="${windowId}"]`);
+            if (dockItem) {
+                dockItem.classList.toggle('active', isActive);
+            }
+        }
+
+        function closeWindow(windowId) {
+            const windowElement = document.getElementById(windowId);
+            if (windowElement) {
+                windowElement.style.display = 'none';
+                updateDockStatus(windowId, false);
+            }
+        }
+
+        function maximizeWindow(windowId) {
+            const windowElement = document.getElementById(windowId);
+            if (windowElement) {
+                windowElement.style.display = 'flex';
+                updateDockStatus(windowId, true);
+                bringToFront(windowId);
+                
+                if (windowId === 'terminal-window' && terminalInput) {
+                    setTimeout(() => terminalInput.focus(), 100);
+                }
+            }
+        }
+        
+        function toggleApp(windowId) {
+            const windowElement = document.getElementById(windowId);
+            
+            if (!windowElement) return;
+            
+            if (windowElement.style.display === 'flex') {
+                closeWindow(windowId);
+            } else {
+                maximizeWindow(windowId); 
+            }
+        }
+
+        function resetTerminalState() {
+            isProcessing = false;
+            if (terminalInput) {
+                terminalInput.disabled = false;
+                terminalInput.focus();
+            }
+        }
+        
+        function appendToTerminal(text, isCommand = false) {
+            const p = document.createElement('p');
+            if (isCommand) {
+                p.innerHTML = `<span class="prompt">root@kali:~#</span> ${text}`;
+            } else {
+                p.innerHTML = text;
+            }
+            if (terminalHistory) {
+                terminalHistory.appendChild(p);
+                terminalHistory.scrollTop = terminalHistory.scrollHeight;
+            }
+            return p; 
+        }
+        
+        function initializeTerminalContent() {
+            if (terminalHistory) {
+                terminalHistory.innerHTML = ''; 
+                appendToTerminal("✅ **STATUS:** Bootloader Selesai. Sistem siap.", false);
+                appendToTerminal("Ketik <span style=\"color:var(--accent-color); font-weight:bold;\">'help'</span> untuk melihat perintah baru.", false);
+                appendToTerminal("Fitur AI: <span style=\"color:#61afef;\">gemini [query]</span>, <span style=\"color:#ffae42;\">script [tugas]</span>, dan <span style=\"color:var(--kali-accent);\">✨ Audit Keamanan</span> di File Manager.", false);
+            }
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('id-ID', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            const dateString = now.toLocaleDateString('id-ID', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit' 
+            });
+
+            const timeDisplay = document.getElementById('time-display');
+            if (timeDisplay) timeDisplay.textContent = `${dateString} ${timeString}`; 
+        }
+
+        function updateBatteryDisplay() {
+            const batteryDisplay = document.getElementById('battery-display');
+            if (!batteryDisplay) return;
+
+            const simulatedLevel = 78 + Math.floor(Math.random() * 5) - 2; 
+            
+            let iconClass = 'fas fa-battery-three-quarters';
+            if (simulatedLevel >= 90) iconClass = 'fas fa-battery-full';
+            else if (simulatedLevel <= 20) iconClass = 'fas fa-battery-quarter';
+
+            const isCharging = Math.random() < 0.1; 
+            
+            if (isCharging) {
+                 batteryDisplay.innerHTML = `<i class="fas fa-bolt" style="color:#f1fa8c;"></i> ${simulatedLevel}%`;
+            } else {
+                 batteryDisplay.innerHTML = `<i class="${iconClass}"></i> ${simulatedLevel}%`;
+            }
+        }
+        
+        function openSettings() {
+             const notification = document.querySelector('.notification-area');
+            if (notification) {
+                notification.innerHTML = '<p><i class="fas fa-cog"></i> **Settings:** Jendela pengaturan diluncurkan (simulasi).</p>';
+                notification.style.display = 'block';
+                setTimeout(() => notification.style.display = 'none', 3000); 
+            }
+        }
+
+        // ===================================================================
+        // 4. GEMINI API INTEGRATIONS (Q&A and Audit)
+        // ===================================================================
+        
+        async function callGeminiApi(userQuery) {
+            isProcessing = true;
+            terminalInput.disabled = true;
+            
+            const loadingP = appendToTerminal(`<span style='color:var(--accent-color);'>✨ Gemini: Memproses permintaan Anda... </span><span id="gemini-loading" class="loading-spinner"></span>`, false);
+
+            const systemPrompt = "Act as a fast, helpful, and concise system utility assistant for a Linux terminal. Provide the answer in Indonesian, and ensure the answer is less than 150 words. Format the response as plain text, suitable for a terminal environment. Do not use Markdown headings, lists, or bolding (*), use simple line breaks.";
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            const maxRetries = 3;
+            let delay = 1000; 
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; 
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        let sources = [];
+                        const groundingMetadata = candidate.groundingMetadata;
+
+                        if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                            sources = groundingMetadata.groundingAttributions
+                                .map(attribution => ({
+                                    uri: attribution.web?.uri,
+                                    title: attribution.web?.title,
+                                }))
+                                .filter(source => source.uri && source.title);
+                        }
+
+                        loadingP.remove(); 
+
+                        appendToTerminal(`<span style="color:var(--kali-accent);">[AI RESPONSE (Gemini)]</span>`, false);
+                        appendToTerminal(text.replace(/\n/g, '<br>'), false);
+                        
+                        if (sources.length) {
+                            appendToTerminal(`<span style="color:#61afef; margin-top: 10px;">[Sources/Referensi]</span>`, false);
+                            sources.slice(0, 3).forEach((source, index) => { 
+                                appendToTerminal(`  ${index + 1}. ${source.title} (Link: ${source.uri})`, false);
+                            });
+                        }
+
+                        resetTerminalState(); 
+                        return; 
+                    } else {
+                        throw new Error("Response content is empty or malformed.");
+                    }
+                } catch (error) {
+                    loadingP.remove();
+                    appendToTerminal(`<span style="color:#ff5555;">[ERROR] Gagal memproses permintaan: ${error.message}</span>`, false);
+                    if (i === maxRetries - 1) {
+                         appendToTerminal(`<span style="color:#ff5555;">[ERROR] Mencoba lagi gagal. Coba format ulang perintah Anda.</span>`, false);
+                    }
+                }
+            } 
+
+            resetTerminalState();
+        }
+
+        async function callGeminiSecurityAudit(filePath) {
+            isAuditing = true;
+            const auditButton = document.getElementById('audit-button');
+            const auditResultDiv = document.getElementById('audit-result');
+            
+            document.getElementById('open-browser-button').style.display = 'none';
+
+            auditButton.disabled = true;
+            auditResultDiv.innerHTML = `<span style='color:var(--accent-color);'>✨ Gemini Security: Menganalisis ${filePath}...</span><span class="loading-spinner"></span>`;
+
+            const userQuery = `Lakukan analisis keamanan singkat pada path file/direktori berikut: ${filePath}. Berikan saran atau peringatan jika nama file mengindikasikan risiko tinggi (seperti kredensial atau skrip berbahaya). Format output sebagai teks konsol yang ringkas dan padat.`;
+            
+            const systemPrompt = "Act as an expert Linux Security Analyst. Your task is to provide a concise, professional security assessment of a given file path. Respond ONLY in Indonesian. Do not use Markdown headings or lists, use line breaks. Start your response with '[LAPORAN KEAMANAN]'.";
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+            
+            const maxRetries = 3;
+            let delay = 1000; 
+            let finalResultText = "<span style=\"color:#ff5555;\">Gagal mendapatkan laporan audit.</span>";
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; 
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+                    finalResultText = text.replace(/\n/g, '<br>');
+                    break; 
+                } catch (error) {
+                    finalResultText = `<span style="color:#ff5555;">[ERROR] Gagal memanggil API Gemini: ${error.message}</span>`;
+                }
+            }
+            
+            auditResultDiv.innerHTML = finalResultText;
+            auditButton.disabled = false;
+            isAuditing = false;
+            if(selectedFileSrc) {
+                document.getElementById('open-browser-button').style.display = 'inline-block';
+            }
+        }
+
+        // ===================================================================
+        // 5. GEMINI API INTEGRATION (Script Generator)
+        // ===================================================================
+
+        async function callGeminiScriptGenerator(userQuery) {
+            isProcessing = true;
+            terminalInput.disabled = true;
+            
+            const loadingP = appendToTerminal(`<span style='color:var(--accent-color);'>✨ ScriptGen: Menghasilkan kode untuk '${userQuery}'... </span><span id="scriptgen-loading" class="loading-spinner"></span>`, false);
+
+            const systemPrompt = "Act as an expert Linux systems developer and code generator. The user provides a task description. Your response MUST ONLY be the executable code or script (e.g., Bash or Python), formatted within a single Markdown code block (```language\ncode\n```). Do not include any preceding or trailing explanatory text. Respond in the requested language (English/Indonesian) only if a comment is necessary, otherwise keep the code clean.";
+            
+            const payload = {
+                contents: [{ parts: [{ text: `Generate a script for: ${userQuery}. Prefer Bash unless Python is clearly needed.` }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            const maxRetries = 3;
+            let delay = 1000; 
+            let scriptContent = null;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; 
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (text) {
+                        scriptContent = text;
+                        break; 
+                    } else {
+                        throw new Error("Response content is empty.");
+                    }
+                } catch (error) {
+                    loadingP.remove();
+                    appendToTerminal(`<span style="color:#ff5555;">[ERROR SCRIPTGEN] Gagal memanggil API: ${error.message}</span>`, false);
+                }
+            }
+            
+            loadingP.remove();
+
+            if (scriptContent) {
+                let cleanedScript = scriptContent.replace(/```[a-zA-Z]*\n/g, '').replace(/```/g, '').trim();
+
+                appendToTerminal(`<span style="color:#ffae42;">[AI SCRIPT GENERATOR] Hasil untuk: ${userQuery}</span>`, false);
+                appendToTerminal(`---------------------------------------------`, false);
+                
+                cleanedScript.split('\n').forEach(line => {
+                    appendToTerminal(`<span style="color:#f1fa8c;">${line}</span>`, false);
+                });
+                
+                appendToTerminal(`---------------------------------------------`, false);
+                appendToTerminal(`Script berhasil dibuat. Silakan uji coba dan modifikasi.`, false);
+
+            } else {
+                appendToTerminal(`<span style="color:#ff5555;">[ERROR SCRIPTGEN] Gagal menghasilkan script. Coba lagi dengan prompt yang berbeda.</span>`, false);
+            }
+
+            resetTerminalState();
+        }
+        
+        function triggerSecurityAudit() {
+            if (selectedFilePath && !isAuditing) {
+                callGeminiSecurityAudit(selectedFilePath);
+            }
+        }
+
+        // ===================================================================
+        // 6. FILE MANAGER & BROWSER LOGIC
+        // ===================================================================
+        
+        function setupBrowserEvents() {
+            const iframe = document.getElementById('web-viewer-iframe');
+            const addressBar = document.getElementById('address-bar-input');
+            const browserTitle = document.getElementById('browser-title');
+
+            document.getElementById('browser-back').addEventListener('click', () => {
+                try { iframe.contentWindow.history.back(); } catch (e) { console.warn("Navigasi diblokir oleh CORS/X-Frame-Options."); }
+            });
+            document.getElementById('browser-forward').addEventListener('click', () => {
+                try { iframe.contentWindow.history.forward(); } catch (e) { console.warn("Navigasi diblokir oleh CORS/X-Frame-Options."); }
+            });
+            document.getElementById('browser-refresh').addEventListener('click', () => {
+                iframe.src = addressBar.value; // Refresh dengan URL saat ini
+            });
+            
+            addressBar.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    loadUrlFromAddressBar();
+                }
+            });
+
+            // Update address bar and title on iframe load (simulated)
+            iframe.addEventListener('load', () => {
+                try {
+                    // Try to get the actual URL and title, but this might be blocked by CORS
+                    const currentUrl = iframe.contentWindow.location.href;
+                    const currentTitle = iframe.contentWindow.document.title;
+                    
+                    if (currentUrl && currentUrl !== 'about:blank') {
+                        addressBar.value = currentUrl;
+                        console.log(`[Browser] Berhasil memuat URL: ${currentUrl}`);
+                    }
+                    if (currentTitle) {
+                         browserTitle.textContent = currentTitle;
+                    } else {
+                         browserTitle.textContent = 'Web Browser';
+                    }
+                } catch (e) {
+                    // CORS or security block, use the current address bar value
+                    browserTitle.textContent = 'Web Browser (BLOCKED)';
+                    console.error("⛔ KEAMANAN BLOKIR: Konten eksternal diblokir. Situs web ini melarang dimuat dalam iframe (X-Frame-Options/CORS).");
+                }
+            });
+        }
+        
+        function loadUrlFromAddressBar() {
+            const addressBar = document.getElementById('address-bar-input');
+            let url = addressBar.value.trim();
+
+            if (!url) return; 
+
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                // Fallback to a search engine if it's not a proper URL (simulated search)
+                url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+                console.warn(`[Browser] URL tidak valid, mengalihkan ke Google Search.`);
+            }
+
+            openFileInBrowser(url, "Loading..."); 
+            addressBar.value = url; 
+        }
+
+        function openFileInBrowser(url, title) {
+            const iframe = document.getElementById('web-viewer-iframe');
+            const browserTitle = document.getElementById('browser-title');
+            const addressBarInput = document.getElementById('address-bar-input'); 
+
+            // Set sumber iframe
+            iframe.src = url;
+            browserTitle.textContent = title;
+            addressBarInput.value = url; // Set address bar value
+            
+            if (url !== 'about:blank') {
+                 console.log(`[Browser] Memuat: ${url}. Jika kosong, kemungkinan besar diblokir oleh X-Frame-Options/CORS.`);
+            }
+
+            // Buka jendela browser
+            maximizeWindow('website-viewer-window');
+        }
+
+        function openSelectedFileInBrowser() {
+            if (selectedFileSrc) {
+                openFileInBrowser(selectedFileSrc, selectedFilePath);
+            }
+        }
+        
+        function setupFileManagerInteraction() {
+            const fileItems = document.querySelectorAll('#file-list .file-item');
+            const selectedFileInfo = document.getElementById('selected-file-info');
+            const auditButton = document.getElementById('audit-button');
+            const openBrowserButton = document.getElementById('open-browser-button'); 
+            const auditResultDiv = document.getElementById('audit-result');
+
+            fileItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    fileItems.forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    
+                    // Reset dan perbarui state
+                    selectedFilePath = item.getAttribute('data-path');
+                    selectedFileSrc = item.getAttribute('data-src'); 
+                    const fileType = item.getAttribute('data-type');
+                    
+                    // Reset Area Aksi
+                    auditResultDiv.innerHTML = 'Gunakan tombol di bawah untuk aksi file.'; 
+                    auditButton.style.display = 'inline-block';
+                    openBrowserButton.style.display = 'none';
+
+                    selectedFileInfo.innerHTML = `File terpilih: **${selectedFilePath}** (${fileType})`;
+                    auditButton.disabled = false;
+
+                    // Logika tampilan tombol
+                    if (selectedFileSrc) {
+                        openBrowserButton.style.display = 'inline-block';
+                        auditResultDiv.innerHTML = 'File terdeteksi sebagai tautan web. Anda dapat membukanya di Browser atau menjalankan audit keamanan pada nama path.';
+                    } else {
+                        openBrowserButton.style.display = 'none';
+                        auditResultDiv.innerHTML = 'Gunakan tombol di bawah untuk meminta analisis keamanan dari Gemini.'; 
+                    }
+                });
+            });
+        }
+
+
+        // ===================================================================
+        // 7. TERMINAL COMMAND HANDLER
+        // ===================================================================
+
+        function processCommand(command) {
+            const cmd = command.trim().toLowerCase();
+            let response = '';
+
+            if (isProcessing) {
+                appendToTerminal("<span style=\"color:#f1fa8c;\">Sistem sibuk. Tunggu AI selesai memproses.</span>", false);
+                return;
+            }
+
+            if (cmd.startsWith('gemini ')) {
+                const userQuery = command.substring(7).trim(); 
+                if (userQuery.length > 5) {
+                    callGeminiApi(userQuery);
+                    return; 
+                } else {
+                    response = "<span style=\"color:#f1fa8c;\">Error: Harap berikan pertanyaan yang lebih detail setelah 'gemini'.</span>";
+                }
+            } else if (cmd.startsWith('script ')) { 
+                const userQuery = command.substring(7).trim(); 
+                if (userQuery.length > 5) {
+                    callGeminiScriptGenerator(userQuery);
+                    return; 
+                } else {
+                    response = "<span style=\"color:#f1fa8c;\">Error: Harap berikan deskripsi tugas yang jelas setelah 'script'.</span>";
+                }
+            }
+            
+            else {
+                switch (cmd) {
+                    case 'help':
+                        response = `<span style="color:var(--kali-accent);">COMMANDS:</span>
+  help          - Menampilkan daftar perintah ini.
+  clear         - Membersihkan layar terminal.
+  status        - Menampilkan status sistem.
+  ping google   - Simulasi koneksi.
+  <span style="color:#61afef;">gemini [query]</span> - Memanggil AI asisten canggih (Real-time data).
+  <span style="color:#ffae42;">script [tugas]</span>  - <span style="font-weight:bold;">✨ AI Script Generator</span>. Hasilkan Bash/Python script.`;
+                        break;
+                    case 'clear':
+                        if (terminalHistory) terminalHistory.innerHTML = '';
+                        response = 'Terminal dibersihkan.';
+                        break;
+                    case 'status':
+                        response = `[OK] Semua layanan inti berjalan normal.
+[INFO] CPU Load: 12% | Mem Usage: 40%
+[OK] Network: CONNECTED`;
+                        break;
+                    case 'ping google':
+                        response = `PING google (142.250.190.174): 56 data bytes
+64 bytes from 142.250.190.174: icmp_seq=1 time=12.5 ms
+64 bytes from 142.250.190.174: icmp_seq=2 time=13.1 ms`;
+                        break;
+                    default:
+                        response = `bash: ${command}: command not found`;
+                }
+
+                setTimeout(() => {
+                    appendToTerminal(response, false);
+                    resetTerminalState(); 
+                }, 100);
+            }
+        }
+
+        function handleTerminalInput(event) {
+            if (event.key === 'Enter' && terminalInput && !isProcessing) {
+                const command = terminalInput.value;
+                
+                appendToTerminal(command, true);
+                
+                isProcessing = true;
+                terminalInput.disabled = true;
+
+                processCommand(command);
+                
+                terminalInput.value = '';
+                event.preventDefault(); 
+            }
+        }
+
+        function openWhatsAppChat() {
+            const notification = document.querySelector('.notification-area');
+            if (notification) {
+                notification.innerHTML = '<p><i class="fab fa-whatsapp"></i> **Chat:** Membuka jendela WhatsApp (simulasi).</p>';
+                notification.style.display = 'block';
+                setTimeout(() => notification.style.display = 'none', 3000); 
+            }
+        }
+
+        function launchMyApii() {
+            const notification = document.querySelector('.notification-area');
+            if (notification) {
+                notification.innerHTML = '<p><i class="fas fa-satellite-dish"></i> **MyApii:** Aplikasi MyApii diluncurkan (simulasi `src`).</p>';
+                notification.style.display = 'block';
+                setTimeout(() => notification.style.display = 'none', 3000); 
+            }
+        }
+
+        // --- Start the Bootloader on load ---
+        document.addEventListener('DOMContentLoaded', startBootloader);
+    </script>
+</body>
+</html>
