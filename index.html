@@ -4,83 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>vOS Boot Sequence</title>
-    <!-- Memuat Font Awesome untuk ikon -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js" crossorigin="anonymous"></script>
-    <style>
-        /* --- 1. CSS Variables (Linux Dark Theme) --- */
-        :root {
-            --bg-desktop: #282c34; 
-            --text-color: #abb2bf; 
-            --window-bg: #1e1e1e; 
-            --panel-bg: #323842; 
-            --accent-color: #61afef; /* Biru Neon untuk Stage 1 */
-            --kali-accent: #00ff66; /* Hijau Neon untuk Stage 2 */
-            --dock-bg: rgba(46, 52, 64, 0.95); 
-            
-            --radius: 8px; 
-            --shadow: 0 8px 20px rgba(0, 0, 0, 0.6); 
-        }
-
-        /* --- 2. GLOBAL STYLES --- */
-        body {
-            font-family: 'Roboto Mono', monospace;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            overflow: hidden; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            background-color: black; 
-        }
-        
-        /* --- 3. BOOTLOADER SCREEN STYLES (MODERN MINIMALIS) --- */
-        #bootloader-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 1s;
-            z-index: 2000;
-        }
-
-        /* --- Background Label --- */
-        #bg-label {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 8em; 
-            color: rgba(255, 255, 255, 0.03); 
-            font-weight: bold;
-            letter-spacing: 15px;
-            z-index: 1999; 
-            user-select: none;
-            pointer-events: none;
-        }
-
-        #boot-text {
-            font-size: 1.2em; 
-            color: #999; 
-            margin-bottom: 20px;
-            font-weight: normal;
-            letter-spacing: 2px;
-            display: flex;
-            align-items: center;
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>vOS Boot Sequence</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js" crossorigin="anonymous"></script>
     <style>
         /* --- 1. CSS Variables (Linux Dark Theme) --- */
@@ -664,449 +587,71 @@
 
                     <div id="audit-result" style="margin-top: 10px; font-size: 0.8em; color: var(--text-color); white-space: pre-wrap;"></div>
                 </div>
-              gap: 10px;
-            z-index: 2000; 
-        }
-        #boot-text i {
-            font-size: 1.5em; 
-        }
-
-        #loading-bar-container {
-            width: 60%; 
-            max-width: 350px;
-            height: 3px; 
-            background-color: #1a1a1a; 
-            border-radius: 1.5px;
-            overflow: hidden;
-            margin-top: 15px;
-            z-index: 2000;
-        }
-
-        #loading-bar {
-            width: 0;
-            height: 100%;
-            background-color: var(--accent-color); 
-            box-shadow: 0 0 5px var(--accent-color);
-            transition: width 0.1s linear, background-color 0.5s ease; 
-        }
-        
-        #percentage {
-            margin-top: 15px;
-            font-size: 0.7em; 
-            color: #777;
-            letter-spacing: 1px;
-            z-index: 2000;
-        }
-
-        /* --- 4. DESKTOP STYLES --- */
-        #desktop-container {
-            width: 100%;
-            height: 100vh;
-            background-color: var(--bg-desktop);
-            color: var(--text-color);
-            display: none; 
-            flex-direction: column;
-            position: relative;
-            padding-bottom: 40px; 
-        }
-
-        /* --- DESKTOP COMPONENTS STYLES --- */
-        .linux-panel {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 20px; 
-            background-color: var(--panel-bg);
-            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-            display: flex;
-            justify-content: flex-end; 
-            align-items: center;
-            font-size: 0.7em; 
-            padding: 0 10px;
-            z-index: 1000;
-        }
-
-        .panel-right {
-             display: flex;
-             gap: 15px; 
-        }
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        #macos-dock {
-            position: fixed;
-            bottom: 30px; 
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--dock-bg);
-            border-radius: 12px;
-            padding: 8px 15px;
-            box-shadow: var(--shadow);
-            display: flex;
-            gap: 15px; 
-            align-items: center;
-            z-index: 1010;
-        }
-
-        .dock-item {
-            width: 35px;
-            height: 35px;
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: transform 0.2s, background-color 0.2s;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .dock-item i {
-            font-size: 1.5em;
-            color: var(--text-color);
-            transition: color 0.2s;
-        }
-        .dock-item.active {
-             border-bottom: 3px solid var(--kali-accent);
-        }
-        .dock-item.active i {
-             color: var(--kali-accent);
-        }
-        .dock-item:hover {
-            transform: translateY(-8px) scale(1.2); 
-        }
-
-        .app-window {
-            position: absolute; 
-            top: 50px; 
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%; 
-            max-width: 650px; 
-            height: 80%; 
-            max-height: 450px;
-            background-color: var(--window-bg);
-            box-shadow: var(--shadow); 
-            display: none; 
-            flex-direction: column;
-            resize: both; 
-            overflow: hidden;
-            z-index: 100; 
-            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out, width 0.3s, height 0.3s; 
-            border: 1px solid #111;
-        }
-        
-        .window-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 5px 10px;
-            background-color: #242931; 
-            cursor: grab; 
-            user-select: none;
-        }
-
-        .terminal-content {
-            flex-grow: 1;
-            padding: 10px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-size: 0.9em;
-            line-height: 1.4;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end; 
-        }
-        .terminal-history {
-            flex-grow: 1;
-            overflow-y: auto;
-            margin-bottom: 10px;
-        }
-        .prompt {
-            color: var(--kali-accent); 
-            font-weight: bold;
-            margin-right: 5px;
-        }
-
-        #terminal-input {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-family: 'Roboto Mono', monospace;
-            font-size: 0.9em;
-            padding: 0;
-            margin-left: 5px;
-            flex-grow: 1;
-            outline: none;
-            caret-color: var(--text-color);
-        }
-        
-        #terminal-input:disabled {
-            color: #777;
-            cursor: not-allowed;
-        }
-
-        /* File Manager Styling */
-        .file-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 5px;
-            cursor: pointer;
-            transition: background-color 0.15s;
-        }
-        .file-item:hover {
-            background-color: #2a2a2a;
-        }
-        .file-item.selected {
-            background-color: #3d3d3d;
-            border-left: 3px solid var(--kali-accent);
-        }
-
-        .action-button {
-            padding: 5px 10px; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 0.8em; 
-            font-weight: bold;
-            margin-right: 10px;
-            transition: background-color 0.2s;
-        }
-
-        .audit-button-style {
-            background-color: var(--kali-accent); 
-            color: #1e1e1e;
-        }
-        .browser-button-style {
-            background-color: var(--accent-color); 
-            color: white;
-        }
-
-        .loading-spinner::after {
-            content: ' ...';
-            animation: blink 1s infinite;
-        }
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0; }
-            100% { opacity: 1; }
-        }
-
-        .notification-area {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background-color: var(--panel-bg);
-            color: var(--text-color);
-            padding: 10px 15px;
-            border-radius: 4px;
-            box-shadow: var(--shadow);
-            opacity: 0.95;
-            z-index: 1000;
-            cursor: pointer;
-            transition: opacity 0.3s;
-        }
-        
-        /* --- 5. NEW BROWSER STYLES (Basic Chrome Look) --- */
-        .browser-window {
-            border-radius: var(--radius);
-        }
-
-        .browser-header {
-            /* Chrome-like header color */
-            background-color: #33363d; 
-            padding: 8px 10px;
-            align-items: center;
-            display: flex;
-            flex-wrap: nowrap; 
-            gap: 10px;
-            cursor: grab;
-        }
-
-        .nav-button {
-            background-color: #444851;
-            color: var(--text-color);
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            font-size: 0.8em;
-        }
-        .nav-button:hover {
-            background-color: #555964;
-        }
-
-        .address-bar-container {
-            display: flex;
-            align-items: center;
-            flex-grow: 1;
-            min-width: 100px; /* Minimal width for small screens */
-        }
-
-        .address-bar-input {
-            width: 100%;
-            background-color: #242931; 
-            color: var(--text-color);
-            border: 1px solid #1a1a1a;
-            padding: 5px 10px;
-            border-radius: 20px; 
-            font-size: 0.8em;
-            outline: none;
-            transition: border-color 0.2s;
-            text-align: center;
-        }
-        .address-bar-input:focus {
-            border-color: var(--kali-accent);
-        }
-        .browser-window .window-title {
-            font-size: 0.8em;
-            padding: 0 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-    </style>
-</head>
-<body> 
-
-    <!-- ----------------------------------------------------- -->
-    <!--                  BOOTLOADER SCREEN                    -->
-    <!-- ----------------------------------------------------- -->
-    <div id="bootloader-screen">
-        <div id="bg-label">vOS</div>
-        <div id="boot-text"></div>
-        <div id="loading-bar-container">
-            <div id="loading-bar"></div>
-        </div>
-        <div id="percentage">0%</div>
-    </div>
-
-
-    <!-- ----------------------------------------------------- -->
-    <!--                    DESKTOP CONTENT                    -->
-    <!-- ----------------------------------------------------- -->
-    <div id="desktop-container" class="linux-desktop">
-
-        <!-- macOS-style Dock (Bottom Center, Floating) -->
-        <div id="macos-dock">
-            <div id="terminal-dock-item" class="dock-item" data-window-id="terminal-window" onclick="toggleApp('terminal-window')">
-                <i class="fas fa-terminal" title="Terminal"></i>
-            </div>
-            <div id="file-manager-dock-item" class="dock-item" data-window-id="file-manager-window" onclick="toggleApp('file-manager-window')">
-                <i class="fas fa-folder-open" title="Files"></i>
-            </div>
-            <div id="browser-dock-item" class="dock-item" data-window-id="website-viewer-window" onclick="toggleApp('website-viewer-window')">
-                <i class="fas fa-globe" title="Web Browser"></i>
-            </div>
-            <div class="dock-item" onclick="openWhatsAppChat()">
-                <i class="fab fa-whatsapp" style="color:#25D366;" title="Chat (WA)"></i>
-            </div>
-            <div class="dock-item" onclick="launchMyApii()">
-                <i class="fas fa-satellite-dish" style="color:#ffae42;" title="MyApii"></i>
-            </div>
-            <div class="dock-item" onclick="openSettings()">
-                <i class="fas fa-cog" title="Settings"></i>
             </div>
         </div>
 
-        <!-- Panel Bawah (Status Bar Tipis) -->
-        <footer class="linux-panel">
-            <div class="panel-right">
-                <span class="panel-item status-item battery-display" id="battery-display"></span>
-                <span class="panel-item status-item time-display" id="time-display"></span>
-            </div>
-        </footer>
-
-        <!-- Jendela Aplikasi (Terminal) -->
-        <div id="terminal-window" class="app-window terminal-window" style="display: none; top: 80px; left: 50%; transform: translateX(-50%);"> 
-            <header class="window-header">
-                <div class="window-title">
-                    <i class="fas fa-terminal"></i> root@kali: ~ 
-                </div>
-            </header>
-
-            <div class="terminal-content">
-                <div id="terminal-history" class="terminal-history">
-                    <!-- Konten awal akan diisi oleh JS -->
-                </div>
-                <!-- Input Terminal -->
-                <div class="terminal-input-line">
-                    <span class="prompt">root@kali:~#</span><input type="text" id="terminal-input" onkeydown="handleTerminalInput(event)">
-                </div>
-            </div>
-        </div>
-        
-        <!-- Jendela Aplikasi (File Manager) -->
-        <div id="file-manager-window" class="app-window file-manager-window" style="display: none; top: 130px; left: 50%; transform: translateX(-50%);"> 
-            <header class="window-header">
-                <div class="window-title">
-                    <i class="fas fa-folder"></i> File Manager: /home/user/
-                </div>
-            </header>
-            <div class="window-content" style="padding: 15px; flex-grow: 1; display: flex; flex-direction: column;">
-                <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 10px;">/home/user/</p>
-                
-                <!-- File List Area -->
-                <div id="file-list" style="flex-grow: 1; overflow-y: auto;">
-                    <div class="file-item" data-path="Documents/" data-type="folder"><i class="fas fa-folder" style="color: #ffae42;"></i> Documents/</div>
-                    <div class="file-item" data-path="Pictures/" data-type="folder"><i class="fas fa-folder" style="color: #ffae42;"></i> Pictures/</div>
-                    <!-- Link telah diubah ke default-lime.vercel.app -->
-                    <div class="file-item" data-path="Venncode.link" data-type="link" data-src="https://default-lime.vercel.app"><i class="fas fa-link" style="color: #61afef;"></i> Venncode.link</div>
-                    <div class="file-item" data-path="News_Feed.html" data-type="link" data-src="https://www.bing.com"><i class="fas fa-file-code" style="color: #61afef;"></i> News_Feed.html</div>
-                    <!-- File Lama -->
-                    <div class="file-item" data-path="passwords.txt" data-type="file"><i class="fas fa-file-alt" style="color: #f0f;"></i> passwords.txt</div>
-                    <div class="file-item" data-path="exploit.sh" data-type="file"><i class="fas fa-file-code" style="color: #00ff66;"></i> exploit.sh</div>
-                    <div class="file-item" data-path=".ssh/id_rsa" data-type="file"><i class="fas fa-key" style="color: #d88;"></i> .ssh/id_rsa</div>
-                    <div class="file-item" data-path="system_logs.log" data-type="file"><i class="fas fa-file-alt" style="color: #fff;"></i> system_logs.log</div>
-                </div>
-
-                <!-- Audit Area powered by Gemini -->
-                <div id="file-action-area" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; min-height: 100px;">
-                    <p id="selected-file-info" style="font-size: 0.8em; color: #777; margin-bottom: 8px;">Pilih file atau folder di atas untuk aksi.</p>
-                    
-                    <!-- Tombol Audit (Gemini) -->
-                    <button id="audit-button" class="action-button audit-button-style" style="display:none;" onclick="triggerSecurityAudit()">✨ Audit Keamanan</button>
-                    
-                    <!-- Tombol Buka di Browser (Baru) -->
-                    <button id="open-browser-button" class="action-button browser-button-style" style="display:none;" onclick="openSelectedFileInBrowser()">Buka di Browser</button>
-
-                    <div id="audit-result" style="margin-top: 10px; font-size: 0.8em; color: var(--text-color); white-space: pre-wrap;"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Jendela Aplikasi (Web Viewer / Browser BARU) -->
         <div id="website-viewer-window" class="app-window browser-window" style="display: none; top: 150px; left: 55%; transform: translateX(-50%); width: 70%; max-width: 800px; height: 90%;"> 
             <header class="window-header browser-header">
-                <!-- Browser Controls -->
                 <div class="browser-controls" style="display: flex; gap: 5px; align-items: center;">
                     <button id="browser-back" class="nav-button" title="Kembali"><i class="fas fa-arrow-left"></i></button>
                     <button id="browser-forward" class="nav-button" title="Maju"><i class="fas fa-arrow-right"></i></button>
                     <button id="browser-refresh" class="nav-button" title="Refresh"><i class="fas fa-redo-alt"></i></button>
                 </div>
                 
-                <!-- Address Bar -->
                 <div class="address-bar-container">
                     <input type="text" id="address-bar-input" class="address-bar-input" placeholder="Masukkan URL..." value="https://default-lime.vercel.app">
                 </div>
                 
-                <!-- Title (Simulasi tab/judul) -->
                 <div class="window-title">
                     <i class="fas fa-globe"></i> <span id="browser-title">Web Browser</span>
                 </div>
             </header>
             <div class="window-content" style="flex-grow: 1; padding: 0;">
-                <!-- Iframe untuk menampilkan konten web -->
                 <iframe id="web-viewer-iframe" style="width: 100%; height: 100%; border: none; background-color: #fff;"></iframe>
             </div>
         </div>
+        
+        <div id="camera-window" class="app-window" style="display: none; top: 180px; left: 45%; transform: translateX(-50%); width: 400px; height: 500px;"> 
+            <header class="window-header">
+                <div class="window-title">
+                    <i class="fas fa-camera"></i> Camera: Rear (Simulated)
+                </div>
+            </header>
+            <div class="window-content" id="camera-preview">
+                
+                Simulasi Kamera (Tidak berfungsi)
+                <div id="camera-controls">
+                    <button class="camera-button" onclick="alert('Simulasi: Ganti ke Kamera Depan')"><i class="fas fa-sync-alt"></i></button>
+                    <button class="camera-button" id="capture-button" onclick="simulateCapture()"><i class="fas fa-circle"></i></button>
+                    <button class="camera-button" onclick="toggleApp('gallery-window')"><i class="fas fa-album"></i></button>
+                </div>
+            </div>
+        </div>
 
-        <!-- Simulasi Notifikasi -->
+        <div id="gallery-window" class="app-window" style="display: none; top: 200px; left: 55%; transform: translateX(-50%); max-width: 600px; max-height: 400px;"> 
+            <header class="window-header">
+                <div class="window-title">
+                    <i class="fas fa-image"></i> Gallery: /home/user/Pictures/
+                </div>
+            </header>
+            <div class="window-content" style="padding: 15px; flex-grow: 1; overflow-y: auto;">
+                <p style="color: var(--kali-accent); font-weight: bold; margin-bottom: 15px;">Simulasi Galeri Foto</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+                     <div style="background-color: #333; height: 120px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; border-radius: 4px;">
+                         <i class="fas fa-mountain" style="font-size: 2em; color: #777;"></i>
+                         <span style="font-size: 0.7em;">Foto-001.jpg</span>
+                         <button class="action-button" style="background-color: var(--accent-color);" onclick="alert('Simulasi: Foto 001 Diunduh')"><i class="fas fa-download"></i></button>
+                     </div>
+                     <div style="background-color: #333; height: 120px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px; border-radius: 4px;">
+                         <i class="fas fa-video" style="font-size: 2em; color: #777;"></i>
+                         <span style="font-size: 0.7em;">Video-002.mp4</span>
+                         <button class="action-button" style="background-color: var(--accent-color);" onclick="alert('Simulasi: Video 002 Diunduh')"><i class="fas fa-download"></i></button>
+                     </div>
+                     <p style="grid-column: 1 / -1; color: #777; font-size: 0.8em; margin-top: 10px;">Simulasi file foto dan video. Tombol unduh tidak berfungsi.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="notification-area" onclick="this.style.display='none'">
             <p><i class="fas fa-bell"></i> **System Update:** 50 packages pending upgrade.</p>
         </div>
@@ -1139,10 +684,10 @@
         const percentageDisplay = document.getElementById('percentage');
 
         // TIMING CONFIG (BASE values for randomization)
-        const STAGE1_BASE_DURATION = 15000; 
-        const STAGE1_RANDOM_RANGE = 5000; 
-        const STAGE2_BASE_DURATION = 59000; 
-        const STAGE2_RANDOM_RANGE = 20000; 
+        const STAGE1_BASE_DURATION = 1500; // Dikurangi untuk pengujian cepat
+        const STAGE1_RANDOM_RANGE = 500; 
+        const STAGE2_BASE_DURATION = 5900; // Dikurangi untuk pengujian cepat
+        const STAGE2_RANDOM_RANGE = 2000; 
 
         // Helper function untuk mendapatkan durasi acak
         function getRandomDuration(baseMs, rangeMs) {
@@ -1237,7 +782,7 @@
             const windowElements = document.querySelectorAll('.app-window');
             windowElements.forEach(dragElement);
             
-            // NEW: Setup Browser events and initial load
+            // Setup Browser events and initial load
             setupBrowserEvents();
             
             // Set initial content for the browser (about:blank for safety)
@@ -1677,7 +1222,7 @@
         }
 
         // ===================================================================
-        // 6. FILE MANAGER & BROWSER LOGIC
+        // 6. FILE MANAGER & BROWSER & CAMERA LOGIC
         // ===================================================================
         
         function setupBrowserEvents() {
@@ -1801,6 +1346,35 @@
                 });
             });
         }
+        
+        function simulateCapture() {
+            const cameraPreview = document.getElementById('camera-preview');
+            cameraPreview.style.backgroundColor = '#fff';
+            cameraPreview.style.color = '#000';
+            cameraPreview.innerHTML = ' 📸 CAPTURE... SAVED!';
+            
+            const notification = document.querySelector('.notification-area');
+            if (notification) {
+                notification.innerHTML = '<p><i class="fas fa-camera"></i> **Camera:** Foto berhasil disimpan ke Galeri.</p>';
+                notification.style.display = 'block';
+            }
+
+            // Reset setelah 1 detik
+            setTimeout(() => {
+                cameraPreview.style.backgroundColor = '#000';
+                cameraPreview.style.color = '#fff';
+                cameraPreview.innerHTML = `
+                    
+                    Simulasi Kamera (Tidak berfungsi)
+                    <div id="camera-controls">
+                        <button class="camera-button" onclick="alert('Simulasi: Ganti ke Kamera Depan')"><i class="fas fa-sync-alt"></i></button>
+                        <button class="camera-button" id="capture-button" onclick="simulateCapture()"><i class="fas fa-circle"></i></button>
+                        <button class="camera-button" onclick="toggleApp('gallery-window')"><i class="fas fa-album"></i></button>
+                    </div>
+                `;
+                setTimeout(() => notification.style.display = 'none', 3000); 
+            }, 1000);
+        }
 
 
         // ===================================================================
@@ -1883,15 +1457,6 @@
                 
                 terminalInput.value = '';
                 event.preventDefault(); 
-            }
-        }
-
-        function openWhatsAppChat() {
-            const notification = document.querySelector('.notification-area');
-            if (notification) {
-                notification.innerHTML = '<p><i class="fab fa-whatsapp"></i> **Chat:** Membuka jendela WhatsApp (simulasi).</p>';
-                notification.style.display = 'block';
-                setTimeout(() => notification.style.display = 'none', 3000); 
             }
         }
 
